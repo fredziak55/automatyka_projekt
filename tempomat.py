@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import math
 
 class Car:
     def __init__(self, mass, drag_coefficient, engine_force, brake_force):
@@ -62,7 +63,7 @@ def simulate(car, pid, setpoint, terrain, dt, time, use_pid):
     height = 0
     
     for t in times:
-        slope = terrain(t)
+        slope = terrain
         if use_pid:
             throttle = pid.update(setpoint, car.velocity, dt)
             throttle = np.clip(throttle, -10, 10)
@@ -78,11 +79,12 @@ def simulate(car, pid, setpoint, terrain, dt, time, use_pid):
     
     
 # Define a terrain profile function (example: a constant uphill slope)
-def terrain_profile(t):
-    if 2000 < t < 3000:
-        return 0.2  # Steeper slope for a longer hill
-    return 0.1 * np.sin(0.01 * t)  # Wavy slope with small amplitude and frequency
-    return 0 # Constant slope angle in radians (10 degrees)
+def terrain_profile(degree):
+    # if 2000 < t < 3000:
+    #     return 0.2  # Steeper slope for a longer hill
+    # return 0.1 * np.sin(0.01 * t)  # Wavy slope with small amplitude and frequency
+    # degree = 10
+    return degree * (math.pi / 180) # 10 degrees slope
 
 # Parameters
 mass = 1500  # kg
@@ -99,7 +101,7 @@ car = Car(mass, drag_coefficient, engine_force, brake_force)
 pid = PIDController(kp, ki, kd)
 
 # Run simulation
-times, velocities, heights, throttle_values = simulate(car, pid, setpoint, terrain_profile, dt, time, use_pid=True)
+times, velocities, heights, throttle_values = simulate(car, pid, setpoint, terrain_profile(0), dt, time, use_pid=True)
 
 # Plot results
 plt.figure(figsize=(12, 6))
