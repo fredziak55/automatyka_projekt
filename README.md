@@ -1,2 +1,7 @@
 # Cruise control implementation
-Projekt na zajęcia z podstaw automatyki
+Requirements:
+Bokeh
+numpy
+
+To run the app type in console
+``bokeh serve --show tempomat.py``
