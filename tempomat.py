@@ -95,13 +95,13 @@ brake_force = 8000  # N
 kp, ki, kd = 0.3, 0.01, 0.05  # PID coefficients
 setpoint = 0  # m/s
 dt = 0.1  # time step in seconds
-time = 1000  # total simulation time in seconds
+simulation_time = 1000  # total simulation time in seconds
 
 def generate_random_hills(num_hills, max_height, max_slope, total_time):
     hills = []
     for _ in range(num_hills):
         start_time = np.random.uniform(0, total_time)
-        duration = np.random.uniform(100, 1000)  # Duration of each hill
+        duration = np.random.uniform(100, total_time)  # Duration of each hill
         height = np.random.uniform(-max_height, max_height)  # Random height for uphill or downhill
         slope = np.random.uniform(-max_slope, max_slope)  # Random slope for uphill or downhill
         hills.append((start_time, duration, height, slope))
@@ -135,8 +135,7 @@ def update():
     
     car = Car(mass, drag_coefficient, engine_force, brake_force)
     pid = PIDController(kp, ki, kd)
-    t = 0
-    times, velocities, heights, throttle_values = simulate(car, pid, setpoint / 3.6, lambda t: terrain_profile(t, degree), dt, time, use_pid=True)
+    times, velocities, heights, throttle_values = simulate(car, pid, setpoint / 3.6, lambda t: terrain_profile(t, degree), dt, simulation_time, use_pid=True)
     velocities = [v * 3.6 for v in velocities]
 
     p1.renderers.clear()
@@ -160,14 +159,13 @@ def update_with_random_hill():
     num_hills = 5
     max_height = 0.3  # Maximum height of hills in radians
     max_slope = 0.2  # Maximum slope of hills in radians
-    total_time = 1000  # Total simulation time in seconds
 
-    hills = generate_random_hills(num_hills, max_height, max_slope, total_time)
+    hills = generate_random_hills(num_hills, max_height, max_slope, simulation_time)
 
     car = Car(mass, drag_coefficient, engine_force, brake_force)
     pid = PIDController(kp, ki, kd)
 
-    times, velocities, heights, throttle_values = simulate(car, pid, setpoint / 3.6, lambda t: random_terrain_profile(t, hills), dt, time, use_pid=True)
+    times, velocities, heights, throttle_values = simulate(car, pid, setpoint / 3.6, lambda t: random_terrain_profile(t, hills), dt, simulation_time, use_pid=True)
     velocities = [v * 3.6 for v in velocities]
 
     p1.renderers.clear()
