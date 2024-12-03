@@ -85,12 +85,12 @@ def simulate(car, pid, setpoint, terrain, dt, time, use_pid):
     
 # Define a terrain profile function
 def terrain_profile(t, degree):
-    return degree * (math.pi / 180) # 10 degrees slope
+    return degree * (math.pi / 180) # Convert degrees to radians
 
 # Parameters
 mass = 1500  # kg
 drag_coefficient = 0.3  # dimensionless
-engine_force = 4000  # N
+engine_force = 8000  # N
 brake_force = 8000  # N
 kp, ki, kd = 0.3, 0.01, 0.05  # PID coefficients
 setpoint = 0  # m/s
@@ -156,7 +156,7 @@ def update_with_random_hill():
     car = Car(mass, drag_coefficient, engine_force, brake_force)
     pid = PIDController(kp, ki, kd)
 
-    num_hills = 5
+    num_hills = 10
     max_height = 0.3  # Maximum height of hills in radians
     max_slope = 0.2  # Maximum slope of hills in radians
 
