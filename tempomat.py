@@ -46,6 +46,8 @@ class Car:
             self.velocity = 0
         self.slope_angle = slope
 
+        return net_force
+
 class PIDController:
     def __init__(self, kp, ki, kd):
         self.kp = kp
@@ -71,6 +73,7 @@ def simulate(car, pid, setpoint, terrain, dt, time, use_pid):
     velocities = []
     heights = []
     throttle_values = []
+    net_force_values = []
     height = 0
 
     for t in times:
@@ -80,13 +83,15 @@ def simulate(car, pid, setpoint, terrain, dt, time, use_pid):
             throttle = np.clip(throttle, -10, 10)
         else:
             throttle = 1  # Full throttle for testing purposes
-
+        net_force = car.update(throttle, slope, dt)
         car.update(throttle, slope, dt)
         velocities.append(car.velocity)  # Convert m/s to km/h
         height +=  car.velocity * np.sin(slope) * dt
         heights.append(height)
         throttle_values.append(throttle)
-    return times, velocities, heights, throttle_values
+        net_force_values.append(net_force)
+
+    return times, velocities, heights, throttle_values, net_force_values
     
     
 # Define a terrain profile function
@@ -124,42 +129,29 @@ p1 = figure(title="Car Velocity Over Time", x_axis_label='Time (s)', y_axis_labe
 p2 = figure(title="Car position over time", x_axis_label='Time (s)')
 p2.yaxis.visible = False
 p3 = figure(title="PID controller", x_axis_label='Time (s)', y_axis_label='Throttle')
+p4 = figure(title="Net force over time", x_axis_label='Time (s)', y_axis_label='Net force (N)')
+p5 = figure(title="Slope Angle Over Time", y_range=Range1d(start=0, end=1000), x_range=Range1d(start=0, end=1000))
 
 # Create HoverTool instances for each plot
-hover_tool_p1 = HoverTool(
-    tooltips=[
-        ("Time", "@x{0.0}"),
-        ("Velocity", "@y{0.0}")
-    ]
-)
-
-hover_tool_p2 = HoverTool(
-    tooltips=[
-        ("Time", "@x{0.0}"),
-        ("Car positon", "@y{0.0}")
-    ]
-)
-
-hover_tool_p3 = HoverTool(
-    tooltips=[
-        ("Time", "@x{0.0}"),
-        ("Throttle", "@y{0.0}")
-    ]
-)
-
+hover_tool_p1 = HoverTool(tooltips=[("Time", "@x{0.0}"), ("Velocity", "@y{0.0}")])
+hover_tool_p2 = HoverTool(tooltips=[("Time", "@x{0.0}"), ("Height", "@y{0.0}")])
+hover_tool_p3 = HoverTool(tooltips=[("Time", "@x{0.0}"), ("Throttle", "@y{0.0}")])
+hover_tool_p4 = HoverTool(tooltips=[("Time", "@x{0.0}"), ("Net Force", "@y{0.0}")])
+hover_tool_p5 = HoverTool(tooltips=[("Time", "@x{0.0}"), ("Slope Angle", "@y{0.0}")])
 
 # Add the HoverTool to each plot
 p1.add_tools(hover_tool_p1)
 p2.add_tools(hover_tool_p2)
 p3.add_tools(hover_tool_p3)
-
+p4.add_tools(hover_tool_p4)
+p5.add_tools(hover_tool_p5)
 
 # Kp_slider = Slider(start=0.01, end=1.0, value=kp, step=0.01, title="Kp")
 Ki_slider = Slider(start=0.01, end=1.0, value=ki, step=0.01, title="Ki")
 # Kd_slider = Slider(start=0.01, end=1.0, value=kd, step=0.01, title="Kd")
 setpoint_slider = Slider(start=10, end=210, value=setpoint, step=1, title="Setpoint")
 apply_button = Button(label="Apply Changes", button_type="success")
-terrian_slope = Slider(start=-60, end=60, value=0, step=15, title="Terrain Slope")
+terrian_slope = Slider(start=-60, end=90, value=0, step=15, title="Terrain Slope")
 random_hill_button = Button(label="Generate Random Hill", button_type="warning")
 
 radio_button_group = RadioButtonGroup(labels=["Porsche 911 992.2 Carrera S", "Mercedes GLS", "Scania Ciężarówka"], active=0)
@@ -191,21 +183,27 @@ def update():
 
     car = Car(mass, drag_coefficient, engine_force, brake_force)
     pid = PIDController(kp, ki, kd)
-    times, velocities, heights, throttle_values = simulate(car, pid, setpoint / 3.6, lambda t: terrain_profile(t, degree), dt, simulation_time, use_pid=True)
+    times, velocities, heights, throttle_values, net_force_values = simulate(car, pid, setpoint / 3.6, lambda t: terrain_profile(t, degree), dt, simulation_time, use_pid=True)
     velocities = [v * 3.6 for v in velocities]
     
-    plots = [p1, p2, p3]
+    plots = [p1, p2, p3, p4, p5]
     for plot in plots:
         for r in plot.renderers:
             if isinstance(r.glyph, Line):
                 r.glyph.line_color = 'gray'
 
-
-
-    p1.line(times, velocities, legend_label="Velocity", line_width=2, line_color='red')
+    p1.line(times, velocities, legend_label="Velocity", line_width=2)
     p1.line([times[0], times[-1]], [setpoint, setpoint], color='red', line_dash='dashed', legend_label="Setpoint")
-    p2.line(times, heights, legend_label="Car position", line_width=2, line_color='red')
-    p3.line(times, throttle_values, line_width=2, line_color='red')
+    p2.line(times, heights, legend_label="Car position", line_width=2)
+    p3.line(times, throttle_values, line_width=2)
+    p4.line(times, net_force_values, legend_label="Net Force", line_width=2)
+
+    theta = math.radians(degree)
+    m = math.tan(theta)
+    y_vals = [m * x for x in times]
+    p5.xaxis.axis_label = " "
+    p5.yaxis.axis_label = " "
+    p5.line(times, y_vals, color='blue', line_dash='dashed')
 
 def update_with_random_hill():
     ki = Ki_slider.value
@@ -239,10 +237,10 @@ def update_with_random_hill():
     car = Car(mass, drag_coefficient, engine_force, brake_force)
     pid = PIDController(kp, ki, kd)
 
-    times, velocities, heights, throttle_values = simulate(car, pid, setpoint / 3.6, lambda t: random_terrain_profile(t, hills), dt, simulation_time, use_pid=True)
+    times, velocities, heights, throttle_values, net_force_values = simulate(car, pid, setpoint / 3.6, lambda t: random_terrain_profile(t, hills), dt, simulation_time, use_pid=True)
     velocities = [v * 3.6 for v in velocities]
 
-    plots = [p1, p2, p3]
+    plots = [p1, p2, p3, p4]
     for plot in plots:
         for r in plot.renderers:
             if isinstance(r.glyph, Line):
@@ -252,11 +250,13 @@ def update_with_random_hill():
     p1.line([times[0], times[-1]], [setpoint, setpoint], color='red', line_dash='dashed', legend_label="Setpoint")
     p2.line(times, heights, legend_label="Car position", line_width=2)
     p3.line(times, throttle_values, line_width=2)
+    p4.line(times, net_force_values, legend_label="Net Force", line_width=2)
+    p5.renderers.clear()
 
 text = Div(text="<h2>Czas próbkowania = 0.1s</h2>")
 
 # Arrange plots in a column
-layout = column(row(setpoint_slider, terrian_slope, radio_button_group, apply_button),  row(p1, p2, p3), row(Ki_slider, text),   random_hill_button)
+layout = column(row(setpoint_slider, terrian_slope, radio_button_group, apply_button),  row(p1, p2, p5), row(p3, p4), row(Ki_slider, text),   random_hill_button)
 
 apply_button.on_click(update)
 random_hill_button.on_click(update_with_random_hill)
