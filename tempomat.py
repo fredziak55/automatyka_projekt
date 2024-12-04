@@ -49,24 +49,25 @@ class Car:
         return net_force
 
 class PIDController:
-    def __init__(self, kp, ki, kd):
+    def __init__(self, kp, ti, td):
         self.kp = kp
-        self.ki = ki
-        self.kd = kd
-        self.ti = 0 #ti 
+        self.ti = ti
+        self.td = td
+        self.integral = 0 
         self.previous_error = 0
         self.first_run = True
 
     def update(self, setpoint, measured_value, dt): #dt = delta time
         error = setpoint - measured_value
-        self.ti += error * dt
+        self.integral += error * dt
         if self.first_run:
-            td = 0
+            derivative = 0
             self.first_run = False
         else:
-            td = (error - self.previous_error) / dt #td
+            derivative = (error - self.previous_error) / dt
         self.previous_error = error
-        return self.kp * error + self.ki * self.ti + self.kd * td
+        # return self.kp * error + self.ki * self.integral + self.kd * derivative
+        return kp * (error + (1/self.ti * self.integral) + self.td * derivative )
 
 def simulate(car, pid, setpoint, terrain, dt, time, use_pid):
     times = np.arange(0, time, dt)
@@ -103,7 +104,7 @@ mass = 1500  # kg
 drag_coefficient = 0.3  # dimensionless
 engine_force = 8000  # N
 brake_force = 8000  # N
-kp, ki, kd = 0.3, 0.01, 0.05  # PID coefficients
+kp, ti, td = 0.3, 30, 0.166  # PID coefficients
 setpoint = 0  # m/s
 dt = 0.1  # time step in seconds
 simulation_time = 1000  # total simulation time in seconds
@@ -146,12 +147,12 @@ p3.add_tools(hover_tool_p3)
 p4.add_tools(hover_tool_p4)
 p5.add_tools(hover_tool_p5)
 
-# Kp_slider = Slider(start=0.01, end=1.0, value=kp, step=0.01, title="Kp")
-Ki_slider = Slider(start=0.01, end=1.0, value=ki, step=0.01, title="Ki")
+# Ti_slider = Slider(start=0.01, end=1.0, value=kp, step=0.01, title="Kp")
+Ti_slider = Slider(start=0.01, end=100.0, value=ti, step=0.01, title="Ti")
 # Kd_slider = Slider(start=0.01, end=1.0, value=kd, step=0.01, title="Kd")
 setpoint_slider = Slider(start=10, end=210, value=setpoint, step=1, title="Setpoint")
 apply_button = Button(label="Apply Changes", button_type="success")
-terrian_slope = Slider(start=-60, end=90, value=0, step=15, title="Terrain Slope")
+terrian_slope = Slider(start=-60, end=60, value=0, step=15, title="Terrain Slope")
 random_hill_button = Button(label="Generate Random Hill", button_type="warning")
 
 radio_button_group = RadioButtonGroup(labels=["Porsche 911 992.2 Carrera S", "Mercedes GLS", "Scania Ciężarówka"], active=0)
@@ -161,19 +162,19 @@ def radio_button_handler(attr, old, new):
 radio_button_group.on_change('active', radio_button_handler)
 
 def update():
-    ki = Ki_slider.value
+    ti = Ti_slider.value
     setpoint = setpoint_slider.value 
     degree = terrian_slope.value
     selected_option = radio_button_group.labels[radio_button_group.active]
     if selected_option == "Porsche 911 992.2 Carrera S":
         mass = 1500
         drag_coefficient = 0.3
-        engine_force = 16000
+        engine_force = 25000
         brake_force = 16000
     elif selected_option == "Mercedes GLS":
         mass = 2500
         drag_coefficient = 0.35
-        engine_force = 10000
+        engine_force = 20000
         brake_force = 10000
     elif selected_option == "Scania Ciężarówka":
         mass = 10000
@@ -182,7 +183,7 @@ def update():
         brake_force = 30000
 
     car = Car(mass, drag_coefficient, engine_force, brake_force)
-    pid = PIDController(kp, ki, kd)
+    pid = PIDController(kp, ti, td)
     times, velocities, heights, throttle_values, net_force_values = simulate(car, pid, setpoint / 3.6, lambda t: terrain_profile(t, degree), dt, simulation_time, use_pid=True)
     velocities = [v * 3.6 for v in velocities]
     
@@ -206,7 +207,7 @@ def update():
     p5.line(times, y_vals, color='blue', line_dash='dashed')
 
 def update_with_random_hill():
-    ki = Ki_slider.value
+    ti = Ti_slider.value
     setpoint = setpoint_slider.value 
     selected_option = radio_button_group.labels[radio_button_group.active]
     if selected_option == "Porsche 911 992.2 Carrera S":
@@ -226,7 +227,7 @@ def update_with_random_hill():
         brake_force = 30000
 
     car = Car(mass, drag_coefficient, engine_force, brake_force)
-    pid = PIDController(kp, ki, kd)
+    pid = PIDController(kp, ti, td)
 
     num_hills = 10
     max_height = 0.3  # Maximum height of hills in radians
@@ -235,7 +236,7 @@ def update_with_random_hill():
     hills = generate_random_hills(num_hills, max_height, max_slope, simulation_time)
 
     car = Car(mass, drag_coefficient, engine_force, brake_force)
-    pid = PIDController(kp, ki, kd)
+    pid = PIDController(kp, ti, td)
 
     times, velocities, heights, throttle_values, net_force_values = simulate(car, pid, setpoint / 3.6, lambda t: random_terrain_profile(t, hills), dt, simulation_time, use_pid=True)
     velocities = [v * 3.6 for v in velocities]
@@ -253,10 +254,10 @@ def update_with_random_hill():
     p4.line(times, net_force_values, legend_label="Net Force", line_width=2)
     p5.renderers.clear()
 
-text = Div(text="<h2>Czas próbkowania = 0.1s</h2>")
+text = Div(text="<h2>Sampling time (dt) = 0.1s</h2>")
 
 # Arrange plots in a column
-layout = column(row(setpoint_slider, terrian_slope, radio_button_group, apply_button),  row(p1, p2, p5), row(p3, p4), row(Ki_slider, text),   random_hill_button)
+layout = column(row(setpoint_slider, terrian_slope, radio_button_group, apply_button),  row(p1, p2, p5), row(p3, p4), row(Ti_slider, text),   random_hill_button)
 
 apply_button.on_click(update)
 random_hill_button.on_click(update_with_random_hill)
