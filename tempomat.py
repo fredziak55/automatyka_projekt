@@ -6,6 +6,12 @@ from bokeh.io import output_notebook, show
 from bokeh.layouts import column, row
 from bokeh.models import Slider, ColumnDataSource, Button
 from bokeh.models.glyphs import Line
+from bokeh.models import Range1d
+from bokeh.models import Div
+from bokeh.models.widgets import RadioButtonGroup
+from bokeh.layouts import column, row
+from bokeh.plotting import curdoc
+from bokeh.models import HoverTool
 
 class Car:
     def __init__(self, mass, drag_coefficient, engine_force, brake_force):
@@ -45,20 +51,20 @@ class PIDController:
         self.kp = kp
         self.ki = ki
         self.kd = kd
-        self.integral = 0
+        self.ti = 0 #ti 
         self.previous_error = 0
         self.first_run = True
 
-    def update(self, setpoint, measured_value, dt):
+    def update(self, setpoint, measured_value, dt): #dt = delta time
         error = setpoint - measured_value
-        self.integral += error * dt
+        self.ti += error * dt
         if self.first_run:
-            derivative = 0
+            td = 0
             self.first_run = False
         else:
-            derivative = (error - self.previous_error) / dt
+            td = (error - self.previous_error) / dt #td
         self.previous_error = error
-        return self.kp * error + self.ki * self.integral + self.kd * derivative
+        return self.kp * error + self.ki * self.ti + self.kd * td
 
 def simulate(car, pid, setpoint, terrain, dt, time, use_pid):
     times = np.arange(0, time, dt)
@@ -77,7 +83,7 @@ def simulate(car, pid, setpoint, terrain, dt, time, use_pid):
 
         car.update(throttle, slope, dt)
         velocities.append(car.velocity)  # Convert m/s to km/h
-        height += car.velocity * np.sin(slope) * dt
+        height +=  car.velocity * np.sin(slope) * dt
         heights.append(height)
         throttle_values.append(throttle)
     return times, velocities, heights, throttle_values
@@ -115,43 +121,111 @@ def random_terrain_profile(t, hills):
 
 #bokeh plots
 p1 = figure(title="Car Velocity Over Time", x_axis_label='Time (s)', y_axis_label='Velocity (km/h)')
-p2 = figure(title="Car Height Over Time", x_axis_label='Time (s)', y_axis_label='Height (m)')
-p3 = figure(title="Throttle Over Time", x_axis_label='Time (s)', y_axis_label='Throttle')
+p2 = figure(title="Car position over time", x_axis_label='Time (s)')
+p2.yaxis.visible = False
+p3 = figure(title="PID controller", x_axis_label='Time (s)', y_axis_label='Throttle')
 
-Kp_slider = Slider(start=0.01, end=1.0, value=kp, step=0.01, title="Kp")
+# Create HoverTool instances for each plot
+hover_tool_p1 = HoverTool(
+    tooltips=[
+        ("Time", "@x{0.0}"),
+        ("Velocity", "@y{0.0}")
+    ]
+)
+
+hover_tool_p2 = HoverTool(
+    tooltips=[
+        ("Time", "@x{0.0}"),
+        ("Car positon", "@y{0.0}")
+    ]
+)
+
+hover_tool_p3 = HoverTool(
+    tooltips=[
+        ("Time", "@x{0.0}"),
+        ("Throttle", "@y{0.0}")
+    ]
+)
+
+
+# Add the HoverTool to each plot
+p1.add_tools(hover_tool_p1)
+p2.add_tools(hover_tool_p2)
+p3.add_tools(hover_tool_p3)
+
+
+# Kp_slider = Slider(start=0.01, end=1.0, value=kp, step=0.01, title="Kp")
 Ki_slider = Slider(start=0.01, end=1.0, value=ki, step=0.01, title="Ki")
-Kd_slider = Slider(start=0.01, end=1.0, value=kd, step=0.01, title="Kd")
+# Kd_slider = Slider(start=0.01, end=1.0, value=kd, step=0.01, title="Kd")
 setpoint_slider = Slider(start=10, end=210, value=setpoint, step=1, title="Setpoint")
 apply_button = Button(label="Apply Changes", button_type="success")
-terrian_slope = Slider(start=-30, end=30, value=0, step=1, title="Terrain Slope")
+terrian_slope = Slider(start=-60, end=60, value=0, step=15, title="Terrain Slope")
 random_hill_button = Button(label="Generate Random Hill", button_type="warning")
 
+radio_button_group = RadioButtonGroup(labels=["Porsche 911 992.2 Carrera S", "Mercedes GLS", "Scania Ciężarówka"], active=0)
+def radio_button_handler(attr, old, new):
+    print(f"Radio button option selected: {radio_button_group.labels[new]}")
+
+radio_button_group.on_change('active', radio_button_handler)
+
 def update():
-    kp = Kp_slider.value
     ki = Ki_slider.value
-    kd = Kd_slider.value
     setpoint = setpoint_slider.value 
     degree = terrian_slope.value
-    
+    selected_option = radio_button_group.labels[radio_button_group.active]
+    if selected_option == "Porsche 911 992.2 Carrera S":
+        mass = 1500
+        drag_coefficient = 0.3
+        engine_force = 16000
+        brake_force = 16000
+    elif selected_option == "Mercedes GLS":
+        mass = 2500
+        drag_coefficient = 0.35
+        engine_force = 10000
+        brake_force = 10000
+    elif selected_option == "Scania Ciężarówka":
+        mass = 10000
+        drag_coefficient = 0.7
+        engine_force = 60000
+        brake_force = 30000
+
     car = Car(mass, drag_coefficient, engine_force, brake_force)
     pid = PIDController(kp, ki, kd)
     times, velocities, heights, throttle_values = simulate(car, pid, setpoint / 3.6, lambda t: terrain_profile(t, degree), dt, simulation_time, use_pid=True)
     velocities = [v * 3.6 for v in velocities]
+    
+    plots = [p1, p2, p3]
+    for plot in plots:
+        for r in plot.renderers:
+            if isinstance(r.glyph, Line):
+                r.glyph.line_color = 'gray'
 
-    p1.renderers.clear()
-    p2.renderers.clear()
-    p3.renderers.clear()
 
-    p1.line(times, velocities, legend_label="Velocity", line_width=2)
+
+    p1.line(times, velocities, legend_label="Velocity", line_width=2, line_color='red')
     p1.line([times[0], times[-1]], [setpoint, setpoint], color='red', line_dash='dashed', legend_label="Setpoint")
-    p2.line(times, heights, legend_label="Height", line_width=2)
-    p3.line(times, throttle_values, legend_label="Throttle", line_width=2)
+    p2.line(times, heights, legend_label="Car position", line_width=2, line_color='red')
+    p3.line(times, throttle_values, line_width=2, line_color='red')
 
 def update_with_random_hill():
-    kp = Kp_slider.value
     ki = Ki_slider.value
-    kd = Kd_slider.value
     setpoint = setpoint_slider.value 
+    selected_option = radio_button_group.labels[radio_button_group.active]
+    if selected_option == "Porsche 911 992.2 Carrera S":
+        mass = 1500
+        drag_coefficient = 0.3
+        engine_force = 16000
+        brake_force = 16000
+    elif selected_option == "Mercedes GLS":
+        mass = 2500
+        drag_coefficient = 0.35
+        engine_force = 10000
+        brake_force = 10000
+    elif selected_option == "Scania Ciężarówka":
+        mass = 10000
+        drag_coefficient = 0.7
+        engine_force = 60000
+        brake_force = 30000
 
     car = Car(mass, drag_coefficient, engine_force, brake_force)
     pid = PIDController(kp, ki, kd)
@@ -168,17 +242,21 @@ def update_with_random_hill():
     times, velocities, heights, throttle_values = simulate(car, pid, setpoint / 3.6, lambda t: random_terrain_profile(t, hills), dt, simulation_time, use_pid=True)
     velocities = [v * 3.6 for v in velocities]
 
-    p1.renderers.clear()
-    p2.renderers.clear()
-    p3.renderers.clear()
+    plots = [p1, p2, p3]
+    for plot in plots:
+        for r in plot.renderers:
+            if isinstance(r.glyph, Line):
+                r.glyph.line_color = 'gray'
 
     p1.line(times, velocities, legend_label="Velocity", line_width=2)
     p1.line([times[0], times[-1]], [setpoint, setpoint], color='red', line_dash='dashed', legend_label="Setpoint")
-    p2.line(times, heights, legend_label="Height", line_width=2)
-    p3.line(times, throttle_values, legend_label="Throttle", line_width=2)
+    p2.line(times, heights, legend_label="Car position", line_width=2)
+    p3.line(times, throttle_values, line_width=2)
+
+text = Div(text="<h2>Czas próbkowania = 0.1s</h2>")
 
 # Arrange plots in a column
-layout = column(row(p1, p2, p3), row(Kp_slider, Ki_slider, Kd_slider), row(setpoint_slider, terrian_slope), apply_button, random_hill_button)
+layout = column(row(setpoint_slider, terrian_slope, radio_button_group, apply_button),  row(p1, p2, p3), row(Ki_slider, text),   random_hill_button)
 
 apply_button.on_click(update)
 random_hill_button.on_click(update_with_random_hill)
