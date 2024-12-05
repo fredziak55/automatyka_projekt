@@ -67,7 +67,7 @@ class PIDController:
             derivative = (error - self.previous_error) / dt
         self.previous_error = error
         # return self.kp * error + self.ki * self.integral + self.kd * derivative
-        return kp * (error + (1/self.ti * self.integral) + self.td * derivative )
+        return self.kp * (error + (1/self.ti * self.integral) + self.td * derivative )
 
 def simulate(car, pid, setpoint, terrain, dt, time, use_pid):
     times = np.arange(0, time, dt)
@@ -147,8 +147,8 @@ p3.add_tools(hover_tool_p3)
 p4.add_tools(hover_tool_p4)
 p5.add_tools(hover_tool_p5)
 
-# Ti_slider = Slider(start=0.01, end=1.0, value=kp, step=0.01, title="Kp")
-Ti_slider = Slider(start=0.01, end=100.0, value=ti, step=0.01, title="Ti")
+# Kp_slider = Slider(start=0.01, end=1.0, value=kp, step=0.01, title="Kp")
+Kp_slider = Slider(start=0.01, end=1.0, value=kp, step=0.01, title="Kp")
 # Kd_slider = Slider(start=0.01, end=1.0, value=kd, step=0.01, title="Kd")
 setpoint_slider = Slider(start=10, end=210, value=setpoint, step=1, title="Setpoint")
 apply_button = Button(label="Apply Changes", button_type="success")
@@ -162,7 +162,7 @@ def radio_button_handler(attr, old, new):
 radio_button_group.on_change('active', radio_button_handler)
 
 def update():
-    ti = Ti_slider.value
+    kp = Kp_slider.value
     setpoint = setpoint_slider.value 
     degree = terrian_slope.value
     selected_option = radio_button_group.labels[radio_button_group.active]
@@ -207,7 +207,7 @@ def update():
     p5.line(times, y_vals, color='blue', line_dash='dashed')
 
 def update_with_random_hill():
-    ti = Ti_slider.value
+    kp = Kp_slider.value
     setpoint = setpoint_slider.value 
     selected_option = radio_button_group.labels[radio_button_group.active]
     if selected_option == "Porsche 911 992.2 Carrera S":
@@ -257,7 +257,7 @@ def update_with_random_hill():
 text = Div(text="<h2>Sampling time (dt) = 0.1s</h2>")
 
 # Arrange plots in a column
-layout = column(row(setpoint_slider, terrian_slope, radio_button_group, apply_button),  row(p1, p2, p5), row(p3, p4), row(Ti_slider, text),   random_hill_button)
+layout = column(row(setpoint_slider, terrian_slope, radio_button_group, apply_button),  row(p1, p2, p5), row(p3, p4), row(Kp_slider, text),   random_hill_button)
 
 apply_button.on_click(update)
 random_hill_button.on_click(update_with_random_hill)
