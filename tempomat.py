@@ -129,9 +129,11 @@ def random_terrain_profile(t, hills):
 p1 = figure(title="Car Velocity Over Time", x_axis_label='Time (s)', y_axis_label='Velocity (km/h)')
 p2 = figure(title="Car position over time", x_axis_label='Time (s)')
 p2.yaxis.visible = False
-p3 = figure(title="PID controller", x_axis_label='Time (s)', y_axis_label='Throttle')
+p3 = figure(title="PID controller", x_axis_label='Time (s)', y_axis_label='PID Controller output')
 p4 = figure(title="Net force over time", x_axis_label='Time (s)', y_axis_label='Net force (N)')
-p5 = figure(title="Slope Angle Over Time", y_range=Range1d(start=0, end=1000), x_range=Range1d(start=0, end=1000))
+p5 = figure(title="Slope Angle Over Time", y_range=Range1d(start=-500, end=500), x_range=Range1d(start=0, end=1000))
+p5.xaxis.visible = False
+p5.yaxis.visible = False
 
 # Create HoverTool instances for each plot
 hover_tool_p1 = HoverTool(tooltips=[("Time", "@x{0.0}"), ("Velocity", "@y{0.0}")])
@@ -152,10 +154,10 @@ Kp_slider = Slider(start=0.01, end=1.0, value=kp, step=0.01, title="Kp")
 # Kd_slider = Slider(start=0.01, end=1.0, value=kd, step=0.01, title="Kd")
 setpoint_slider = Slider(start=10, end=210, value=setpoint, step=1, title="Setpoint")
 apply_button = Button(label="Apply Changes", button_type="success")
-terrian_slope = Slider(start=-60, end=60, value=0, step=15, title="Terrain Slope")
+terrian_slope = Slider(start=-45, end=45, value=0, step=15, title="Terrain Slope")
 random_hill_button = Button(label="Generate Random Hill", button_type="warning")
 
-radio_button_group = RadioButtonGroup(labels=["Porsche 911 992.2 Carrera S", "Mercedes GLS", "Scania Ciężarówka"], active=0)
+radio_button_group = RadioButtonGroup(labels=["Porsche 911 992.2 Carrera S", "Mercedes GLS", "Scania Truck"], active=0)
 def radio_button_handler(attr, old, new):
     print(f"Radio button option selected: {radio_button_group.labels[new]}")
 
@@ -196,7 +198,7 @@ def update():
     p1.line(times, velocities, legend_label="Velocity", line_width=2)
     p1.line([times[0], times[-1]], [setpoint, setpoint], color='red', line_dash='dashed', legend_label="Setpoint")
     p2.line(times, heights, legend_label="Car position", line_width=2)
-    p3.line(times, throttle_values, line_width=2)
+    p3.line(times, throttle_values, line_width=2, legend_label="PID Controller")
     p4.line(times, net_force_values, legend_label="Net Force", line_width=2)
 
     theta = math.radians(degree)
@@ -250,7 +252,7 @@ def update_with_random_hill():
     p1.line(times, velocities, legend_label="Velocity", line_width=2)
     p1.line([times[0], times[-1]], [setpoint, setpoint], color='red', line_dash='dashed', legend_label="Setpoint")
     p2.line(times, heights, legend_label="Car position", line_width=2)
-    p3.line(times, throttle_values, line_width=2)
+    p3.line(times, throttle_values, line_width=2, legend_label="PID Controller")
     p4.line(times, net_force_values, legend_label="Net Force", line_width=2)
     p5.renderers.clear()
 
