@@ -12,6 +12,10 @@ from bokeh.models.widgets import RadioButtonGroup
 from bokeh.layouts import column, row
 from bokeh.plotting import curdoc
 from bokeh.models import HoverTool
+from bokeh.models import RadioButtonGroup, Div
+from bokeh.models import ColumnDataSource, DataTable, TableColumn, Slider, Button
+from bokeh.layouts import column
+from bokeh.io import curdoc
 
 class Car:
     def __init__(self, mass, drag_coefficient, engine_force, brake_force):
@@ -126,12 +130,12 @@ def random_terrain_profile(t, hills):
     return 0 
 
 #bokeh plots
-p1 = figure(title="Car Velocity Over Time", x_axis_label='Time (s)', y_axis_label='Velocity (km/h)')
-p2 = figure(title="Car position over time", x_axis_label='Time (s)')
+p1 = figure(title="Car Velocity", x_axis_label='Time (s)', y_axis_label='Velocity (km/h)')
+p2 = figure(title="Car position", x_axis_label='Time (s)')
 p2.yaxis.visible = False
-p3 = figure(title="PID controller", x_axis_label='Time (s)', y_axis_label='PID Controller output')
-p4 = figure(title="Net force over time", x_axis_label='Time (s)', y_axis_label='Net force (N)')
-p5 = figure(title="Slope Angle Over Time", y_range=Range1d(start=-500, end=500), x_range=Range1d(start=0, end=1000))
+p3 = figure(title="Control Signal", x_axis_label='Time (s)', y_axis_label='Control signal')
+p4 = figure(title="Net force", x_axis_label='Time (s)', y_axis_label='Net force (N)')
+p5 = figure(title="Slope Angle", y_range=Range1d(start=-500, end=500), x_range=Range1d(start=0, end=1000))
 p5.xaxis.visible = False
 p5.yaxis.visible = False
 
@@ -149,15 +153,18 @@ p3.add_tools(hover_tool_p3)
 p4.add_tools(hover_tool_p4)
 p5.add_tools(hover_tool_p5)
 
-# Kp_slider = Slider(start=0.01, end=1.0, value=kp, step=0.01, title="Kp")
 Kp_slider = Slider(start=0.01, end=1.0, value=kp, step=0.01, title="Kp")
-# Kd_slider = Slider(start=0.01, end=1.0, value=kd, step=0.01, title="Kd")
+Ti_slider = Slider(start=0.01, end=100.0, value=ti, step=0.01, title="Td")
+Td_slider = Slider(start=0.01, end=1.0, value=td, step=0.01, title="Ti")
 setpoint_slider = Slider(start=10, end=210, value=setpoint, step=1, title="Setpoint")
 apply_button = Button(label="Apply Changes", button_type="success")
 terrian_slope = Slider(start=-45, end=45, value=0, step=15, title="Terrain Slope")
 random_hill_button = Button(label="Generate Random Hill", button_type="warning")
 
-radio_button_group = RadioButtonGroup(labels=["Porsche 911 992.2 Carrera S", "Mercedes GLS", "Scania Truck"], active=0)
+labels = ["Porsche 911 992.2 Carrera S", "Mercedes GLS", "Scania Truck"]
+
+radio_button_group = RadioButtonGroup(labels=labels, active=0)
+
 def radio_button_handler(attr, old, new):
     print(f"Radio button option selected: {radio_button_group.labels[new]}")
 
@@ -165,6 +172,8 @@ radio_button_group.on_change('active', radio_button_handler)
 
 def update():
     kp = Kp_slider.value
+    ti = Ti_slider.value
+    td = Td_slider.value
     setpoint = setpoint_slider.value 
     degree = terrian_slope.value
     selected_option = radio_button_group.labels[radio_button_group.active]
@@ -198,7 +207,7 @@ def update():
     p1.line(times, velocities, legend_label="Velocity", line_width=2)
     p1.line([times[0], times[-1]], [setpoint, setpoint], color='red', line_dash='dashed', legend_label="Setpoint")
     p2.line(times, heights, legend_label="Car position", line_width=2)
-    p3.line(times, throttle_values, line_width=2, legend_label="PID Controller")
+    p3.line(times, throttle_values, line_width=2, legend_label="Control signal")
     p4.line(times, net_force_values, legend_label="Net Force", line_width=2)
 
     theta = math.radians(degree)
@@ -210,6 +219,8 @@ def update():
 
 def update_with_random_hill():
     kp = Kp_slider.value
+    ti = Ti_slider.value
+    td = Td_slider.value
     setpoint = setpoint_slider.value 
     selected_option = radio_button_group.labels[radio_button_group.active]
     if selected_option == "Porsche 911 992.2 Carrera S":
@@ -258,8 +269,42 @@ def update_with_random_hill():
 
 text = Div(text="<h2>Sampling time (dt) = 0.1s</h2>")
 
+car_data = [
+    {"Vehicle": "Porsche 911 992.2 Carrera S", "Engine Power (N)": 25000, "Brake Force (N)": 16000, "Drag Coefficient": 0.3},
+    {"Vehicle": "Mercedes GLS", "Engine Power (N)": 10000, "Brake Force (N)": 10000, "Drag Coefficient": 0.35},
+    {"Vehicle": "Scania Truck", "Engine Power (N)": 60000, "Brake Force (N)": 30000, "Drag Coefficient": 0.7},
+]
+
+# Create an HTML table as a string
+table_html = """
+<table border="1" cellpadding="5" cellspacing="0">
+  <tr>
+    <th>Vehicle</th>
+    <th>Engine Power (N)</th>
+    <th>Brake Force (N)</th>
+    <th>Drag Coefficient</th>
+  </tr>
+"""
+
+for car in car_data:
+    table_html += f"""
+  <tr>
+    <td>{car['Vehicle']}</td>
+    <td>{car['Engine Power (N)']}</td>
+    <td>{car['Brake Force (N)']}</td>
+    <td>{car['Drag Coefficient']}</td>
+  </tr>
+"""
+
+table_html += "</table>"
+
+# Create a Div to display the table
+table_div = Div(text=table_html)
+
+
 # Arrange plots in a column
-layout = column(row(setpoint_slider, terrian_slope, radio_button_group, apply_button),  row(p1, p2, p5), row(p3, p4), row(Kp_slider, text),   random_hill_button)
+# layout = column(row(setpoint_slider, terrian_slope, radio_button_group, table_div, apply_button),  row(p1, p2), row(p3, p4), row(Kp_slider, text),   random_hill_button)
+layout = column(row(p2, column(table_div, radio_button_group, setpoint_slider, terrian_slope, Kp_slider, Ti_slider, Td_slider,apply_button, random_hill_button), p3), row(p1, p4))
 
 apply_button.on_click(update)
 random_hill_button.on_click(update_with_random_hill)
