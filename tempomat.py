@@ -27,6 +27,8 @@ class Car:
         self.slope_angle = 0
         self.air_density = 1.225  # kg/m^3
         self.frontal_area = frontal_area
+        self.first_run = True
+
 
     def update(self, throttle, slope, dt):
         # Calculate forces
@@ -52,7 +54,11 @@ class Car:
             self.velocity = 0
         self.slope_angle = slope
 
-        return net_force
+        if self.first_run:
+            self.velocity = 0
+            self.first_run = False
+
+        return net_force, engine_force, drag_force, brake_force
 
 class PIDController:
     def __init__(self, kp, ti, td):
@@ -76,27 +82,33 @@ class PIDController:
         return self.kp * (error + (1/self.ti * self.integral) + self.td * derivative )
 
 def simulate(car, pid, setpoint, terrain, dt, time, use_pid):
-    times = np.arange(0, time + dt, dt)
-    velocities = [car.velocity]
-    heights = [0]
-    throttle_values = [0]
-    net_force_values = [0]
+    times = np.arange(0, time, dt)
+    velocities = []
+    heights = []
+    throttle_values = []
+    net_force_values = []
+    break_force_values = []
+    engine_force_values = []
+    drag_force_values = []
     height = 0
 
-    for t in times[1:]:
+    for t in times:
         slope = terrain(t)
         if use_pid:
             throttle = pid.update(setpoint, car.velocity, dt)
             throttle = np.clip(throttle, -10, 10)
         else:
             throttle = 1  # Full throttle for testing purposes
-        net_force = car.update(throttle, slope, dt)
-        car.update(throttle, slope, dt)
+        net_force, engine_force, drag_force, brake_force = car.update(throttle, slope, dt)
+        # car.update(throttle, slope, dt)
         velocities.append(car.velocity)  # Convert m/s to km/h
         height +=  car.velocity * np.sin(slope) * dt
         heights.append(height)
         throttle_values.append(throttle)
         net_force_values.append(net_force)
+        break_force_values.append(brake_force)
+        engine_force_values.append(engine_force)
+        drag_force_values.append(drag_force)
 
     return times, velocities, heights, throttle_values, net_force_values
     
