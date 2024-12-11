@@ -87,7 +87,7 @@ def simulate(car, pid, setpoint, terrain, dt, time, use_pid):
     heights = []
     throttle_values = []
     net_force_values = []
-    break_force_values = []
+    brake_force_values = []
     engine_force_values = []
     drag_force_values = []
     height = 0
@@ -106,11 +106,11 @@ def simulate(car, pid, setpoint, terrain, dt, time, use_pid):
         heights.append(height)
         throttle_values.append(throttle)
         net_force_values.append(net_force)
-        break_force_values.append(brake_force)
+        brake_force_values.append(brake_force)
         engine_force_values.append(engine_force)
         drag_force_values.append(drag_force)
 
-    return times, velocities, heights, throttle_values, net_force_values
+    return times, velocities, heights, throttle_values, net_force_values, engine_force_values, drag_force_values, brake_force_values 
     
     
 # Define a terrain profile function
@@ -145,7 +145,7 @@ def random_terrain_profile(t, hills):
     return 0 
 
 #bokeh plots
-p1 = figure(title="Car Velocity", x_axis_label='Time (s)', y_axis_label='Velocity (km/h)')
+p1 = figure(title="Car Velocity", x_axis_label='Time (s)', y_axis_label='Velocity (km/h)', sizing_mode='stretch_width')
 p2 = figure(title="Car position", x_axis_label='Time (s)')
 p2.yaxis.visible = False
 p3 = figure(title="Control Signal", x_axis_label='Time (s)', y_axis_label='Control signal')
@@ -153,6 +153,7 @@ p4 = figure(title="Net force", x_axis_label='Time (s)', y_axis_label='Net force 
 p5 = figure(title="Slope Angle", y_range=Range1d(start=-500, end=500), x_range=Range1d(start=0, end=1000))
 p5.xaxis.visible = False
 p5.yaxis.visible = False
+forces = figure(title="Forces", x_axis_label='Time (s)', y_axis_label='Force (N)', sizing_mode='stretch_width')
 
 # Create HoverTool instances for each plot
 hover_tool_p1 = HoverTool(tooltips=[("Time", "@x{0.0}"), ("Velocity", "@y{0.0}")])
@@ -160,6 +161,7 @@ hover_tool_p2 = HoverTool(tooltips=[("Time", "@x{0.0}"), ("Height", "@y{0.0}")])
 hover_tool_p3 = HoverTool(tooltips=[("Time", "@x{0.0}"), ("Throttle", "@y{0.0}")])
 hover_tool_p4 = HoverTool(tooltips=[("Time", "@x{0.0}"), ("Net Force", "@y{0.0}")])
 hover_tool_p5 = HoverTool(tooltips=[("Time", "@x{0.0}"), ("Slope Angle", "@y{0.0}")])
+hover_tool_forces = HoverTool(tooltips=[("Time", "@x{0.0}"), ("Force(N)", "@y{0.0}")])
 
 # Add the HoverTool to each plot
 p1.add_tools(hover_tool_p1)
@@ -167,6 +169,7 @@ p2.add_tools(hover_tool_p2)
 p3.add_tools(hover_tool_p3)
 p4.add_tools(hover_tool_p4)
 p5.add_tools(hover_tool_p5)
+forces.add_tools(hover_tool_forces)
 
 Kp_slider = Slider(start=0.01, end=1.0, value=kp, step=0.01, title="Kp")
 Ti_slider = Slider(start=0.01, end=100.0, value=ti, step=0.01, title="Td")
@@ -204,7 +207,7 @@ def update():
         engine_force = 20000
         brake_force = 10000
         frontal_area = 2.5
-    elif selected_option == "Scania Ciężarówka":
+    elif selected_option == "Scania Truck":
         mass = 10000
         drag_coefficient = 0.7
         engine_force = 60000
@@ -213,10 +216,10 @@ def update():
 
     car = Car(mass, drag_coefficient, engine_force, brake_force, frontal_area)
     pid = PIDController(kp, ti, td)
-    times, velocities, heights, throttle_values, net_force_values = simulate(car, pid, setpoint / 3.6, lambda t: terrain_profile(t, degree), dt, simulation_time, use_pid=True)
+    times, velocities, heights, throttle_values, net_force_values, engine_force_values, drag_force_values, brake_force_values = simulate(car, pid, setpoint / 3.6, lambda t: terrain_profile(t, degree), dt, simulation_time, use_pid=True)
     velocities = [v * 3.6 for v in velocities]
     
-    plots = [p1, p2, p3, p4, p5]
+    plots = [p1, p2, p3, p4, p5, forces]
     for plot in plots:
         for r in plot.renderers:
             if isinstance(r.glyph, Line):
@@ -227,6 +230,9 @@ def update():
     p2.line(times, heights, legend_label="Car position", line_width=2)
     p3.line(times, throttle_values, line_width=2, legend_label="Control signal")
     p4.line(times, net_force_values, legend_label="Net Force", line_width=2)
+    forces.line(times, engine_force_values, legend_label="Engine Force", line_width=2, color='green')
+    forces.line(times, brake_force_values, legend_label="Brake Force", line_width=2, color='red')
+    forces.line(times, drag_force_values, legend_label="Drag Force", line_width=2, color='yellow')
 
     theta = math.radians(degree)
     m = math.tan(theta)
@@ -253,7 +259,7 @@ def update_with_random_hill():
         engine_force = 20000
         brake_force = 10000
         frontal_area = 2.5
-    elif selected_option == "Scania Ciężarówka":
+    elif selected_option == "Scania Truck":
         mass = 10000
         drag_coefficient = 0.7
         engine_force = 60000
@@ -269,10 +275,10 @@ def update_with_random_hill():
 
     hills = generate_random_hills(num_hills, max_height, max_slope, simulation_time)
 
-    times, velocities, heights, throttle_values, net_force_values = simulate(car, pid, setpoint / 3.6, lambda t: random_terrain_profile(t, hills), dt, simulation_time, use_pid=True)
+    times, velocities, heights, throttle_values, net_force_values, engine_force_values, drag_force_values, brake_force_values = simulate(car, pid, setpoint / 3.6, lambda t: random_terrain_profile(t, hills), dt, simulation_time, use_pid=True)
     velocities = [v * 3.6 for v in velocities]
 
-    plots = [p1, p2, p3, p4]
+    plots = [p1, p2, p3, p4, forces]
     for plot in plots:
         for r in plot.renderers:
             if isinstance(r.glyph, Line):
@@ -284,6 +290,9 @@ def update_with_random_hill():
     p3.line(times, throttle_values, line_width=2, legend_label="PID Controller")
     p4.line(times, net_force_values, legend_label="Net Force", line_width=2)
     p5.renderers.clear()
+    forces.line(times, engine_force_values, legend_label="Engine Force", line_width=2, color='green')
+    forces.line(times, brake_force_values, legend_label="Brake Force", line_width=2, color='red')
+    forces.line(times, drag_force_values, legend_label="Drag Force", line_width=2, color='blue')
 
 text = Div(text="<h2>Sampling time (dt) = 0.1s</h2>")
 
@@ -324,7 +333,7 @@ table_div = Div(text=table_html)
 
 # Arrange plots in a column
 # layout = column(row(setpoint_slider, terrian_slope, radio_button_group, table_div, apply_button),  row(p1, p2), row(p3, p4), row(Kp_slider, text),   random_hill_button)
-layout = column(row(p2, column(table_div, radio_button_group, setpoint_slider, terrian_slope, Kp_slider, Ti_slider, Td_slider,apply_button, random_hill_button), p3), row(p1, p4))
+layout = column(row(p2, column(table_div, radio_button_group, setpoint_slider, terrian_slope, Kp_slider, Ti_slider, Td_slider,apply_button, random_hill_button), p3), row(p1, forces, sizing_mode='stretch_width'))
 
 apply_button.on_click(update)
 random_hill_button.on_click(update_with_random_hill)
