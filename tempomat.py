@@ -18,13 +18,15 @@ from bokeh.layouts import column
 from bokeh.io import curdoc
 
 class Car:
-    def __init__(self, mass, drag_coefficient, engine_force, brake_force):
+    def __init__(self, mass, drag_coefficient, engine_force, brake_force, frontal_area):
         self.mass = mass
         self.drag_coefficient = drag_coefficient
         self.engine_force = engine_force
         self.brake_force = brake_force
         self.velocity = 0
         self.slope_angle = 0
+        self.air_density = 1.225  # kg/m^3
+        self.frontal_area = frontal_area
 
     def update(self, throttle, slope, dt):
         # Calculate forces
@@ -35,7 +37,7 @@ class Car:
             engine_force = 0
             brake_force = self.brake_force * abs(throttle / 10)
         
-        drag_force = self.drag_coefficient * self.velocity**2
+        drag_force = 0.5 * self.air_density * self.drag_coefficient * self.frontal_area * self.velocity**2
         gravity_force = self.mass * 9.81 * np.sin(slope)
 
         # Net force
@@ -74,14 +76,14 @@ class PIDController:
         return self.kp * (error + (1/self.ti * self.integral) + self.td * derivative )
 
 def simulate(car, pid, setpoint, terrain, dt, time, use_pid):
-    times = np.arange(0, time, dt)
-    velocities = []
-    heights = []
-    throttle_values = []
-    net_force_values = []
+    times = np.arange(0, time + dt, dt)
+    velocities = [car.velocity]
+    heights = [0]
+    throttle_values = [0]
+    net_force_values = [0]
     height = 0
 
-    for t in times:
+    for t in times[1:]:
         slope = terrain(t)
         if use_pid:
             throttle = pid.update(setpoint, car.velocity, dt)
@@ -112,6 +114,7 @@ kp, ti, td = 0.3, 30, 0.166  # PID coefficients
 setpoint = 0  # m/s
 dt = 0.1  # time step in seconds
 simulation_time = 1000  # total simulation time in seconds
+frontal_area = 2.2  # m^2
 
 def generate_random_hills(num_hills, max_height, max_slope, total_time):
     hills = []
@@ -182,18 +185,21 @@ def update():
         drag_coefficient = 0.3
         engine_force = 25000
         brake_force = 16000
+        frontal_area = 2.14
     elif selected_option == "Mercedes GLS":
         mass = 2500
         drag_coefficient = 0.35
         engine_force = 20000
         brake_force = 10000
+        frontal_area = 2.5
     elif selected_option == "Scania Ciężarówka":
         mass = 10000
         drag_coefficient = 0.7
         engine_force = 60000
         brake_force = 30000
+        frontal_area = 7.5
 
-    car = Car(mass, drag_coefficient, engine_force, brake_force)
+    car = Car(mass, drag_coefficient, engine_force, brake_force, frontal_area)
     pid = PIDController(kp, ti, td)
     times, velocities, heights, throttle_values, net_force_values = simulate(car, pid, setpoint / 3.6, lambda t: terrain_profile(t, degree), dt, simulation_time, use_pid=True)
     velocities = [v * 3.6 for v in velocities]
@@ -226,20 +232,23 @@ def update_with_random_hill():
     if selected_option == "Porsche 911 992.2 Carrera S":
         mass = 1500
         drag_coefficient = 0.3
-        engine_force = 16000
+        engine_force = 10000
         brake_force = 16000
+        frontal_area = 2.14
     elif selected_option == "Mercedes GLS":
         mass = 2500
         drag_coefficient = 0.35
-        engine_force = 10000
+        engine_force = 20000
         brake_force = 10000
+        frontal_area = 2.5
     elif selected_option == "Scania Ciężarówka":
         mass = 10000
         drag_coefficient = 0.7
         engine_force = 60000
         brake_force = 30000
+        frontal_area = 7.5
 
-    car = Car(mass, drag_coefficient, engine_force, brake_force)
+    car = Car(mass, drag_coefficient, engine_force, brake_force, frontal_area)
     pid = PIDController(kp, ti, td)
 
     num_hills = 10
@@ -247,9 +256,6 @@ def update_with_random_hill():
     max_slope = 0.2  # Maximum slope of hills in radians
 
     hills = generate_random_hills(num_hills, max_height, max_slope, simulation_time)
-
-    car = Car(mass, drag_coefficient, engine_force, brake_force)
-    pid = PIDController(kp, ti, td)
 
     times, velocities, heights, throttle_values, net_force_values = simulate(car, pid, setpoint / 3.6, lambda t: random_terrain_profile(t, hills), dt, simulation_time, use_pid=True)
     velocities = [v * 3.6 for v in velocities]
@@ -270,19 +276,20 @@ def update_with_random_hill():
 text = Div(text="<h2>Sampling time (dt) = 0.1s</h2>")
 
 car_data = [
-    {"Vehicle": "Porsche 911 992.2 Carrera S", "Engine Power (N)": 25000, "Brake Force (N)": 16000, "Drag Coefficient": 0.3},
-    {"Vehicle": "Mercedes GLS", "Engine Power (N)": 10000, "Brake Force (N)": 10000, "Drag Coefficient": 0.35},
-    {"Vehicle": "Scania Truck", "Engine Power (N)": 60000, "Brake Force (N)": 30000, "Drag Coefficient": 0.7},
+    {"Vehicle": "Porsche 911 992.2 Carrera S", "Engine Power (N)": 25000, "Brake Force (N)": 16000, "Drag Coefficient": 0.3, "Frontal Area": 2.14},
+    {"Vehicle": "Mercedes GLS", "Engine Power (N)": 10000, "Brake Force (N)": 10000, "Drag Coefficient": 0.35, "Frontal Area": 2.5},
+    {"Vehicle": "Scania Truck", "Engine Power (N)": 60000, "Brake Force (N)": 30000, "Drag Coefficient": 0.7, "Frontal Area": 7.5},
 ]
 
 # Create an HTML table as a string
 table_html = """
-<table border="1" cellpadding="5" cellspacing="0">
+<table border="1" cellpadding="5" cellspacing="0" style="text-align: center">
   <tr>
     <th>Vehicle</th>
     <th>Engine Power (N)</th>
     <th>Brake Force (N)</th>
     <th>Drag Coefficient</th>
+    <th>Frontal area (m^2)</th>
   </tr>
 """
 
@@ -293,6 +300,7 @@ for car in car_data:
     <td>{car['Engine Power (N)']}</td>
     <td>{car['Brake Force (N)']}</td>
     <td>{car['Drag Coefficient']}</td>
+    <td>{car['Frontal Area']}</td>
   </tr>
 """
 
