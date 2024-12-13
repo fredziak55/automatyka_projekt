@@ -174,7 +174,7 @@ forces.add_tools(hover_tool_forces)
 Kp_slider = Slider(start=0.01, end=1.0, value=kp, step=0.01, title="Kp")
 Ti_slider = Slider(start=0.01, end=100.0, value=ti, step=0.01, title="Td")
 Td_slider = Slider(start=0.01, end=1.0, value=td, step=0.01, title="Ti")
-setpoint_slider = Slider(start=10, end=210, value=setpoint, step=1, title="Setpoint")
+setpoint_slider = Slider(start=0, end=210, value=setpoint, step=1, title="Setpoint")
 apply_button = Button(label="Apply Changes", button_type="success")
 terrian_slope = Slider(start=-45, end=45, value=0, step=15, title="Terrain Slope")
 random_hill_button = Button(label="Generate Random Hill", button_type="warning")
@@ -287,7 +287,7 @@ def update_with_random_hill():
     p1.line(times, velocities, legend_label="Velocity", line_width=2)
     p1.line([times[0], times[-1]], [setpoint, setpoint], color='red', line_dash='dashed', legend_label="Setpoint")
     p2.line(times, heights, legend_label="Car position", line_width=2)
-    p3.line(times, throttle_values, line_width=2, legend_label="PID Controller")
+    p3.line(times, throttle_values, line_width=2, legend_label="Control Signal")
     p4.line(times, net_force_values, legend_label="Net Force", line_width=2)
     p5.renderers.clear()
     forces.line(times, engine_force_values, legend_label="Engine Force", line_width=2, color='green')
@@ -297,9 +297,9 @@ def update_with_random_hill():
 text = Div(text="<h2>Sampling time (dt) = 0.1s</h2>")
 
 car_data = [
-    {"Vehicle": "Porsche 911 992.2 Carrera S", "Engine Power (N)": 25000, "Brake Force (N)": 16000, "Drag Coefficient": 0.3, "Frontal Area": 2.14},
-    {"Vehicle": "Mercedes GLS", "Engine Power (N)": 10000, "Brake Force (N)": 10000, "Drag Coefficient": 0.35, "Frontal Area": 2.5},
-    {"Vehicle": "Scania Truck", "Engine Power (N)": 60000, "Brake Force (N)": 30000, "Drag Coefficient": 0.7, "Frontal Area": 7.5},
+    {"Vehicle": "Porsche 911 992.2 Carrera S", "Engine Power (N)": 25000, "Brake Force (N)": 16000, "Drag Coefficient": 0.3, "Frontal Area": 2.14, "Mass": 1500},
+    {"Vehicle": "Mercedes GLS", "Engine Power (N)": 10000, "Brake Force (N)": 10000, "Drag Coefficient": 0.35, "Frontal Area": 2.5, "Mass": 2500},
+    {"Vehicle": "Scania Truck", "Engine Power (N)": 60000, "Brake Force (N)": 30000, "Drag Coefficient": 0.7, "Frontal Area": 7.5, "Mass": 10000},
 ]
 
 # Create an HTML table as a string
@@ -311,6 +311,7 @@ table_html = """
     <th>Brake Force (N)</th>
     <th>Drag Coefficient</th>
     <th>Frontal area (m^2)</th>
+    <th>Mass (kg)</th>
   </tr>
 """
 
@@ -322,6 +323,7 @@ for car in car_data:
     <td>{car['Brake Force (N)']}</td>
     <td>{car['Drag Coefficient']}</td>
     <td>{car['Frontal Area']}</td>
+    <td>{car['Mass']}</td>
   </tr>
 """
 
@@ -333,7 +335,7 @@ table_div = Div(text=table_html)
 
 # Arrange plots in a column
 # layout = column(row(setpoint_slider, terrian_slope, radio_button_group, table_div, apply_button),  row(p1, p2), row(p3, p4), row(Kp_slider, text),   random_hill_button)
-layout = column(row(p2, column(table_div, radio_button_group, setpoint_slider, terrian_slope, Kp_slider, Ti_slider, Td_slider,apply_button, random_hill_button), p3), row(p1, forces, sizing_mode='stretch_width'))
+layout = column(row(p2, column(table_div, radio_button_group, setpoint_slider, terrian_slope, Kp_slider, Ti_slider, Td_slider, text, apply_button, random_hill_button), p3), row(p1, forces, sizing_mode='stretch_width'))
 
 apply_button.on_click(update)
 random_hill_button.on_click(update_with_random_hill)
